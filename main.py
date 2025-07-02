@@ -1,10 +1,9 @@
 """
 CLI Minesweeper game in Python
 
-1. OOP
-2. Reloading view every turn
-3. Random deployment of mines
-4. Deployment rules
+1. Implement mine placement AFTER player's first move - avoid ending game on turn 1
+2. Generate square info after mine placement - instead of calculating after every move
+3. Add time counter
 """
 
 import random
@@ -14,6 +13,7 @@ class GameBoard:
     def __init__(self, size_x, size_y, num_of_mines):
         self.size_x = size_x
         self.size_y = size_y
+        self.__board_size = size_x * size_y
         self.num_of_mines = num_of_mines
         self.mine_coords = set()
         self.played = set()
@@ -26,7 +26,7 @@ class GameBoard:
             self.mine_coords.add((x, y))
         print(self.mine_coords)  # for debugging purposes
 
-    def draw(self, dead=False):
+    def draw(self, end=False):
         for y in range(0, self.size_y):
             for x in range(0, self.size_x):
                 if (x, y) in self.played:
@@ -36,7 +36,7 @@ class GameBoard:
                     )
                 else:
                     print(
-                        "[M]" if dead and (x, y) in self.mine_coords else "[ ]", end=""
+                        "[M]" if end and (x, y) in self.mine_coords else "[ ]", end=""
                     )
             else:
                 print()
@@ -44,12 +44,14 @@ class GameBoard:
     def select_square(self, coord: tuple[int, int]):
         self.played.add(coord)
         if coord in self.mine_coords:
-            self.draw(dead=True)
+            self.draw(end=True)
             print("You stepped on a mine!")
-            return False
+            return 0
+        elif len(self.played) + self.num_of_mines == self.__board_size:
+            return 2
         else:
-            self.draw()
-            return True
+            self.draw(end=True)
+            return 1
 
     def get_hint(self, x, y):
         if (x, y) in self.mine_coords:
@@ -99,8 +101,12 @@ def main():
             )
             continue
 
-        # Check for mine in selected coordinate
-        if not board.select_square(coord):
+        # Check game state
+        result = board.select_square(coord)
+        if not result:
+            break
+        if result == 2:
+            print("Congratulations! You've sweeped all the mines!")
             break
 
 
