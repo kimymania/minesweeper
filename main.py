@@ -55,8 +55,8 @@ class GameBoard:
         if (x, y) in self.mine_coords:
             return "X"
         count = 0
-        for i in range(y - 1, y + 2):
-            for j in range(x - 1, x + 2):
+        for j in range(y - 1, y + 2):
+            for i in range(x - 1, x + 2):
                 if (i, j) in self.mine_coords:
                     count += 1
         return count
