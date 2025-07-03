@@ -4,6 +4,7 @@ CLI Minesweeper game in Python
 1. Add time counter
 """
 
+import os
 import random
 
 
@@ -40,7 +41,9 @@ class GameBoard:
                     count += 1
         return str(count)
 
-    def draw(self, end=False):
+    def draw(self, end=False, win=None):
+        """Clear the screen and (re)draw the board - emulate screen refresh"""
+        os.system("cls" if os.name == "nt" else "clear")
         for y in range(0, self.size_y):
             for x in range(0, self.size_x):
                 if (x, y) in self.played:
@@ -49,10 +52,10 @@ class GameBoard:
                         end="",
                     )
                 else:
-                    print(
-                        "[M]" if end and (x, y) in self.__mine_coords else "[ ]",
-                        end="",
-                    )
+                    if end and (x, y) in self.__mine_coords:
+                        print("[.]" if win else "[M]", end="")
+                    else:
+                        print("[ ]", end="")
             else:
                 print()
 
@@ -64,11 +67,11 @@ class GameBoard:
             self.initialize()
 
         if self.board_data[coord] == "X":
-            self.draw(end=True)
+            self.draw(end=True, win=False)
             print("You stepped on a mine!")
             return 0
         elif len(self.played) + self.num_of_mines == self.board_size:
-            self.draw(end=True)
+            self.draw(end=True, win=True)
             return 2
         else:
             self.draw()
