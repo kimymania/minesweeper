@@ -1,10 +1,11 @@
 """
 CLI Minesweeper game in Python
 
-1. Add time counter
+1. Open adjacent squares if safe
+2. Add time counter
 """
 
-import os
+# import os
 import random
 
 
@@ -16,37 +17,56 @@ class GameBoard:
         self.num_of_mines = num_of_mines
         self.__mine_coords = set()
         self.board_data = {}
-        self.played = set()
+        self.displayed = set()
 
     def initialize(self):
         self._place_mines()
         for x in range(self.size_x):
             for y in range(self.size_y):
                 self.board_data[(x, y)] = self._check_for_mines(x, y)
+        # Safe squares with value of 0 will be changed to a list of coordinates for safe squares
+        for k, v in self.board_data.items():
+            if v == "0":
+                self.board_data[k] = self._link_safe_squares(k)
+        print(self.board_data)
 
     def _place_mines(self):
         while len(self.__mine_coords) < self.num_of_mines:
             x = random.randint(0, self.size_x - 1)
             y = random.randint(0, self.size_y - 1)
-            if (x, y) not in self.played:
+            if (x, y) not in self.displayed:
                 self.__mine_coords.add((x, y))
 
     def _check_for_mines(self, x, y):
         if (x, y) in self.__mine_coords:
             return "X"
         count = 0
-        for j in range(y - 1, y + 2):
-            for i in range(x - 1, x + 2):
+        # min() and max() to restrict range to valid coordinates
+        for j in range(max(0, y - 1), min(y + 2, self.size_y)):
+            for i in range(max(0, x - 1), min(x + 2, self.size_x)):
                 if (i, j) in self.__mine_coords:
                     count += 1
         return str(count)
 
+    def _link_safe_squares(self, coords):
+        x, y = coords
+        linked = []
+        for j in range(max(0, y - 1), min(y + 2, self.size_y)):
+            for i in range(max(0, x - 1), min(x + 2, self.size_x)):
+                if (
+                    (i, j) in self.board_data.keys()
+                    and self.board_data[(i, j)] != "X"
+                    and self.board_data[(x, y)] != self.board_data[(i, j)]
+                ):
+                    linked.append((i, j))
+        return linked
+
     def draw(self, end=False, win=None):
         """Clear the screen and (re)draw the board - emulate screen refresh"""
-        os.system("cls" if os.name == "nt" else "clear")
+        # os.system("cls" if os.name == "nt" else "clear")
         for y in range(0, self.size_y):
             for x in range(0, self.size_x):
-                if (x, y) in self.played:
+                if (x, y) in self.displayed:  # Needed to draw previous moves as well
                     print(
                         f"[{self.board_data[(x, y)] if self.board_data[(x, y)] else ' '}]",
                         end="",
@@ -55,27 +75,49 @@ class GameBoard:
                     if end and (x, y) in self.__mine_coords:
                         print("[.]" if win else "[M]", end="")
                     else:
-                        print("[ ]", end="")
+                        print("[ ]", end="")  # Default behaviour
             else:
                 print()
 
     def select_square(self, coord: tuple[int, int]):
         """This is the entry point for player's move.
-        self.played keeps track of selected squares."""
-        self.played.add(coord)
-        if len(self.played) == 1:  # This is only activated on player's first move
+        self.displayed keeps track of selected squares."""
+        self.displayed.add(coord)
+        # Guard clause to check for player's first move
+        if len(self.displayed) == 1:
             self.initialize()
 
         if self.board_data[coord] == "X":
             self.draw(end=True, win=False)
             print("You stepped on a mine!")
             return 0
-        elif len(self.played) + self.num_of_mines == self.board_size:
+        elif len(self.displayed) + self.num_of_mines == self.board_size:
             self.draw(end=True, win=True)
             return 2
+        elif isinstance(self.board_data[coord], list):
+            # 'Safe' squares (with value '0') contains a list of linked squares instead of a string
+            for square in self.board_data[coord]:
+                self.unpack_linked_square(square)
+            # Return this square's value to 0 after unpacking list
+            self.board_data[coord] = "0"
+            self.draw()
+            return 1
         else:
             self.draw()
             return 1
+
+    def unpack_linked_square(self, coord):
+        """Unpacks linked squares with value of '0'
+        This function was created to handle recursive unpacking of linked squares with value of '0'"""
+        self.displayed.add(coord)
+        # Recursive call to unpacked linked squares with value of '0'
+        if isinstance(self.board_data[coord], list):
+            for square in self.board_data[coord]:
+                self.unpack_linked_square(square)
+                self.board_data[coord] = "0"
+                print(f"Unpacked from list {coord} = {square}")
+        else:
+            print(f"Unpacked {coord} = {self.board_data[coord]}")
 
 
 def main():
