@@ -26,7 +26,7 @@ class GameBoard:
                 self.board_data[(x, y)] = self._check_for_mines(x, y)
         # Safe squares with value of 0 will be changed to a list of coordinates for safe squares
         for k, v in self.board_data.items():
-            if v == "0":
+            if v == 0:
                 self.board_data[k] = self._link_safe_squares(k)
         print(self.board_data)
 
@@ -39,26 +39,34 @@ class GameBoard:
 
     def _check_for_mines(self, x, y):
         if (x, y) in self.__mine_coords:
-            return "X"
+            return -1
         count = 0
         # min() and max() to restrict range to valid coordinates
         for j in range(max(0, y - 1), min(y + 2, self.size_y)):
             for i in range(max(0, x - 1), min(x + 2, self.size_x)):
                 if (i, j) in self.__mine_coords:
                     count += 1
-        return str(count)
+        return count
 
     def _link_safe_squares(self, coords):
-        x, y = coords
         linked = []
-        for j in range(max(0, y - 1), min(y + 2, self.size_y)):
-            for i in range(max(0, x - 1), min(x + 2, self.size_x)):
-                if (
-                    (i, j) in self.board_data.keys()
-                    and self.board_data[(i, j)] != "X"
-                    and self.board_data[(x, y)] != self.board_data[(i, j)]
-                ):
-                    linked.append((i, j))
+
+        def _create_links(x, y):
+            if (x, y) in self.__mine_coords or x < 0 or y < 0:
+                return
+            if 0 <= self.board_data[(x, y)]:
+                linked.append((x, y))
+            _create_links(x - 1, y - 1)
+            _create_links(x - 1, y)
+            _create_links(x - 1, y + 1)
+            _create_links(x, y - 1)
+            _create_links(x, y + 1)
+            _create_links(x + 1, y - 1)
+            _create_links(x + 1, y)
+            _create_links(x + 1, y + 1)
+
+        _create_links(coords[0], coords[1])
+
         return linked
 
     def draw(self, end=False, win=None):
@@ -87,7 +95,7 @@ class GameBoard:
         if len(self.displayed) == 1:
             self.initialize()
 
-        if self.board_data[coord] == "X":
+        if self.board_data[coord] == -1:
             self.draw(end=True, win=False)
             print("You stepped on a mine!")
             return 0
@@ -99,7 +107,7 @@ class GameBoard:
             for square in self.board_data[coord]:
                 self.unpack_linked_square(square)
             # Return this square's value to 0 after unpacking list
-            self.board_data[coord] = "0"
+            self.board_data[coord] = 0
             self.draw()
             return 1
         else:
@@ -114,10 +122,7 @@ class GameBoard:
         if isinstance(self.board_data[coord], list):
             for square in self.board_data[coord]:
                 self.unpack_linked_square(square)
-                self.board_data[coord] = "0"
-                print(f"Unpacked from list {coord} = {square}")
-        else:
-            print(f"Unpacked {coord} = {self.board_data[coord]}")
+                self.board_data[coord] = 0
 
 
 def main():
@@ -151,6 +156,12 @@ def main():
         except ValueError as e:
             print(f"x and y values must be whole numbers: {e}")
             continue
+        except IndexError as e:
+            print(
+                f"x and y values must be between 0 and {board_x - 1, board_y - 1}: {e}"
+            )
+            continue
+
         if not 0 <= x < board_x or not 0 <= y < board_y:
             print(
                 f"Coordinates must be in the range of (0,0) to ({board_x - 1},{board_y - 1})"
