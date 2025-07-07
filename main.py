@@ -23,12 +23,7 @@ class GameBoard:
         self._place_mines()
         for x in range(self.size_x):
             for y in range(self.size_y):
-                self.board_data[(x, y)] = self._check_for_mines(x, y)
-        # Safe squares with value of 0 will be changed to a list of coordinates for safe squares
-        for k, v in self.board_data.items():
-            if v == 0:
-                self.board_data[k] = self._link_safe_squares(k)
-        print(self.board_data)
+                self.board_data[(x, y)] = self._fill_mine_count(x, y)
 
     def _place_mines(self):
         while len(self.__mine_coords) < self.num_of_mines:
@@ -37,7 +32,7 @@ class GameBoard:
             if (x, y) not in self.displayed:
                 self.__mine_coords.add((x, y))
 
-    def _check_for_mines(self, x, y):
+    def _fill_mine_count(self, x, y):
         if (x, y) in self.__mine_coords:
             return -1
         count = 0
@@ -48,36 +43,17 @@ class GameBoard:
                     count += 1
         return count
 
-    def _link_safe_squares(self, coords):
-        linked = []
-
-        def _create_links(x, y):
-            if (x, y) in self.__mine_coords or x < 0 or y < 0:
-                return
-            if 0 <= self.board_data[(x, y)]:
-                linked.append((x, y))
-            _create_links(x - 1, y - 1)
-            _create_links(x - 1, y)
-            _create_links(x - 1, y + 1)
-            _create_links(x, y - 1)
-            _create_links(x, y + 1)
-            _create_links(x + 1, y - 1)
-            _create_links(x + 1, y)
-            _create_links(x + 1, y + 1)
-
-        _create_links(coords[0], coords[1])
-
-        return linked
-
-    def draw(self, end=False, win=None):
+    def draw(self, end=False, win=False):
         """Clear the screen and (re)draw the board - emulate screen refresh"""
         # os.system("cls" if os.name == "nt" else "clear")
         for y in range(0, self.size_y):
             for x in range(0, self.size_x):
-                if (x, y) in self.displayed:  # Needed to draw previous moves as well
+                if (x, y) in self.displayed and (x, y) in self.__mine_coords:
+                    print("[X]", end="")
+                elif (x, y) in self.displayed:  # Needed to draw previous moves as well
                     print(
-                        f"[{self.board_data[(x, y)] if self.board_data[(x, y)] else ' '}]",
-                        end="",
+                        f"[{int(self.board_data[(x, y)]) if self.board_data[(x, y)] >= 0 else ' '}]",
+                        end="",  # Need to change to int() in case of float values created by get_safe_squares function
                     )
                 else:
                     if end and (x, y) in self.__mine_coords:
@@ -90,39 +66,59 @@ class GameBoard:
     def select_square(self, coord: tuple[int, int]):
         """This is the entry point for player's move.
         self.displayed keeps track of selected squares."""
-        self.displayed.add(coord)
         # Guard clause to check for player's first move
-        if len(self.displayed) == 1:
+        if len(self.displayed) == 0:
+            self.displayed.add(coord)
             self.initialize()
+        elif coord in self.displayed:
+            print("Square already selected")
+            return 1
+        else:
+            self.displayed.add(coord)
 
         if self.board_data[coord] == -1:
-            self.draw(end=True, win=False)
+            self.draw(end=True)
             print("You stepped on a mine!")
             return 0
         elif len(self.displayed) + self.num_of_mines == self.board_size:
             self.draw(end=True, win=True)
             return 2
-        elif isinstance(self.board_data[coord], list):
-            # 'Safe' squares (with value '0') contains a list of linked squares instead of a string
-            for square in self.board_data[coord]:
-                self.unpack_linked_square(square)
-            # Return this square's value to 0 after unpacking list
-            self.board_data[coord] = 0
+        elif self.board_data[coord] == 0:
+            self.get_safe_squares(coord)
             self.draw()
             return 1
         else:
             self.draw()
             return 1
 
-    def unpack_linked_square(self, coord):
-        """Unpacks linked squares with value of '0'
-        This function was created to handle recursive unpacking of linked squares with value of '0'"""
-        self.displayed.add(coord)
-        # Recursive call to unpacked linked squares with value of '0'
-        if isinstance(self.board_data[coord], list):
-            for square in self.board_data[coord]:
-                self.unpack_linked_square(square)
-                self.board_data[coord] = 0
+    def get_safe_squares(self, coord):
+        """Recursive flood fill algorithm for linking safe squares
+        if selected square has no mines in adjacent squares.
+        Used float() type to exclude previously visited squares from recursion."""
+
+        def check(x, y):
+            if (
+                (x, y) in self.__mine_coords
+                or not 0 <= x < self.size_x
+                or not 0 <= y < self.size_y
+            ):
+                return
+            if isinstance(self.board_data[(x, y)], float):
+                return
+            if 0 <= self.board_data[(x, y)]:
+                self.displayed.add((x, y))
+                self.board_data[(x, y)] = float(self.board_data[(x, y)])
+            if self.board_data[(x, y)] == 0:
+                check(x - 1, y - 1)
+                check(x - 1, y)
+                check(x - 1, y + 1)
+                check(x, y + 1)
+                check(x, y - 1)
+                check(x + 1, y - 1)
+                check(x + 1, y)
+                check(x + 1, y + 1)
+
+        check(*coord)
 
 
 def main():
